@@ -1,0 +1,35 @@
+
+        This README is aimed at Windows users.  If you're on a Unix
+        system I'm expecting you to be able to take care of yourself
+        and also expect you're using a distribution with a fairly
+        complete and non-retarded packaging system.
+
+        If your libs directory is empty you'll either to download them
+        from the homepage or you can try to compile them yourself in
+        which case you'll need to download and install MinGW, MSYS and
+        CMake:
+
+            o CMake: http://www.cmake.org/cmake/resources/software.html#latest
+            o MinGW: http://sourceforge.net/project/showfiles.php?group_id=2435&package_id=240780
+            o MSYS: http://sourceforge.net/project/showfiles.php?group_id=2435&package_id=24963
+                    http://sourceforge.net/project/downloading.php?group_id=2435&filename=MSYS-1.0.10.exe&a=14697658
+
+        Install MinGW first and then MSYS.  Use MSYS version 1.0.10.
+        There's guides and information on www.mingw.org if needed.
+        (http://www.mingw.org/wiki/HOWTO_Install_the_MinGW_GCC_Compiler_Suite)
+
+        If all of this is done you can issue:
+
+            > cmake -G "MSYS Makefiles"
+
+        (not "MinGW Makefiles"!)
+
+        and then:
+
+            > make
+
+        and if everything goes right (probably not) it should end up
+        in the lib directory.
+
+
+                                              Erik Winkels, 2009-06-02

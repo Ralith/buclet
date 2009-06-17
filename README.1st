@@ -1,0 +1,54 @@
+
+        What you need and should know to get the example running
+        ========================================================
+
+        General
+        -------
+        The startup scripts (the *.sh and *.bat files) expect to be
+        run from the examples directory.
+
+        Before you try to compile Bullet yourself try running the
+        example with the libraries that are in the Buclet lib
+        directory.
+
+        Linux
+        -----
+        The Linux startup is written and tested using SBCL
+        (1.0.25.debian at the time of writing) and expects to find
+        'sbcl' in the path.
+
+        It also expects to find necessary Bullet libraries in either
+        /usr/local/lib or the Buclet lib directory.
+
+        All these options are set in the *.sh file and can be changed
+        there.
+
+        If the libraries that come with the Buclet distribution don't
+        work for you, you'll need to compile Bullet yourself.
+        Download the source from:
+        http://code.google.com/p/bullet/downloads/list (you'll need
+        "bullet-2.74.tgz").
+
+        You also need the replace Bullet-C-API.cpp and Bullet-C-Api.h
+        with the ones mentioned in comment 6:
+        http://code.google.com/p/bullet/issues/detail?id=43#c6
+
+        Configure, compile and install in /usr/local.
+
+        Windows
+        -------
+        The Windows startup script is written and tested using Clozure
+        CL and expects to find 'wx86cl' in the path.
+
+        All libraries are expected to be found in the lib directory of
+        the Buclet distribution.
+
+        All these settings are in the *.bat file and can be changed
+        there.
+
+        If the libraries that come with the Buclet distribution don't
+        work for you, you'll need to compile Bullet yourself using
+        MinGW.  Check the README.MinGW file for more information.
+
+
+                                              Erik Winkels, 2009-06-02
