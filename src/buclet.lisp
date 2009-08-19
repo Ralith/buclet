@@ -26,18 +26,23 @@
   (:unix "libLinearMath.so")
   (t "libLinearMath"))
 
-;; The order is important!
-(use-foreign-library linear-math)
-(format t "~&[buclet] foreign library linear-math loaded~%")
-
-(use-foreign-library bullet-collision)
-(format t "~&[buclet] foreign library bullet-collision loaded~%")
-
-(use-foreign-library bullet-dynamics)
-(format t "~&[buclet] foreign library bullet-dynamics loaded~%")
-
 
 ;;; Functions
 
+(defun load-foreign-libraries ()
+  ;; The order is important!
+  (use-foreign-library linear-math)
+  (format t "~&[buclet] foreign library linear-math loaded~%")
+  (use-foreign-library bullet-collision)
+  (format t "~&[buclet] foreign library bullet-collision loaded~%")
+  (use-foreign-library bullet-dynamics)
+  (format t "~&[buclet] foreign library bullet-dynamics loaded~%"))
+
+
 (defun quit ()
   (cl-user::quit))
+
+
+;;; Loading the libraries
+
+(load-foreign-libraries)
