@@ -54,8 +54,7 @@
                                                   (third q) (fourth q))))
 
 
-;; must be (q vector) for CLISP
-(defmethod translate-to-foreign ((q simple-vector) (type pl-quaternion))
+(defmethod translate-to-foreign ((q vector) (type pl-quaternion))
   (foreign-alloc 'pl-real :initial-contents (list (svref q 0) (svref q 1)
                                                   (svref q 2) (svref q 3))))
 
@@ -66,7 +65,7 @@
 
 
 ;; must be (q vector) for CLISP
-(defmethod translate-to-foreign ((v simple-vector) (type pl-vector3))
+(defmethod translate-to-foreign ((v vector) (type pl-vector3))
   (foreign-alloc 'pl-real :initial-contents (list (svref v 0) (svref v 1)
                                                   (svref v 2))))
 
