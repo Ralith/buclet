@@ -1,5 +1,11 @@
 # Buclet
 
+**status:** uncertain
+
+I'm not quite sure what will be done with Buclet.  I'll probably
+explore other ways of using physics engines with Common Lisp.
+
+
 ## CFFI bindings to Bullet
 
 
