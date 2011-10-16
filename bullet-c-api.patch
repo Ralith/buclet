@@ -1,0 +1,286 @@
+Index: src/BulletDynamics/Dynamics/Bullet-C-API.cpp
+===================================================================
+--- src/BulletDynamics/Dynamics/Bullet-C-API.cpp	(revision 2443)
++++ src/BulletDynamics/Dynamics/Bullet-C-API.cpp	(working copy)
+@@ -32,6 +32,7 @@
+ #include "LinearMath/btTransform.h"
+ #include "BulletCollision/NarrowPhaseCollision/btVoronoiSimplexSolver.h"
+ #include "BulletCollision/CollisionShapes/btTriangleShape.h"
++#include "BulletCollision/CollisionShapes/btHeightfieldTerrainShape.h"
+ 
+ #include "BulletCollision/NarrowPhaseCollision/btGjkPairDetector.h"
+ #include "BulletCollision/NarrowPhaseCollision/btPointCollector.h"
+@@ -44,6 +45,11 @@
+ #include "BulletCollision/NarrowPhaseCollision/btSimplexSolverInterface.h"
+ #include "BulletCollision/NarrowPhaseCollision/btMinkowskiPenetrationDepthSolver.h"
+ 
++inline void outputVector(plReal *out, const btVector3 &vec) {
++	out[0] = vec[0];
++	out[1] = vec[1];
++	out[2] = vec[2];
++}
+ 
+ /*
+ 	Create and Delete a Physics SDK	
+@@ -85,21 +91,35 @@
+ 
+ 
+ /* Dynamics World */
+-plDynamicsWorldHandle plCreateDynamicsWorld(plPhysicsSdkHandle physicsSdkHandle)
+-{
+-	btPhysicsSdk* physicsSdk = reinterpret_cast<btPhysicsSdk*>(physicsSdkHandle);
++plDynamicsWorldHandle plCreateDynamicsWorld(plPhysicsSdkHandle physicsSdkHandle, plBroadphase broadphase) {
++  btPhysicsSdk* physicsSdk = reinterpret_cast<btPhysicsSdk*>(physicsSdkHandle);
+ 	void* mem = btAlignedAlloc(sizeof(btDefaultCollisionConfiguration),16);
+ 	btDefaultCollisionConfiguration* collisionConfiguration = new (mem)btDefaultCollisionConfiguration();
+ 	mem = btAlignedAlloc(sizeof(btCollisionDispatcher),16);
+ 	btDispatcher*				dispatcher = new (mem)btCollisionDispatcher(collisionConfiguration);
+-	mem = btAlignedAlloc(sizeof(btAxisSweep3),16);
+-	btBroadphaseInterface*		pairCache = new (mem)btAxisSweep3(physicsSdk->m_worldAabbMin,physicsSdk->m_worldAabbMax);
++  
++	btBroadphaseInterface* pairCache;
++	switch(broadphase) {
++	case PL_SAP:
++		mem = btAlignedAlloc(sizeof(btAxisSweep3),16);
++		pairCache = new (mem)btAxisSweep3(physicsSdk->m_worldAabbMin,physicsSdk->m_worldAabbMax);
++		break;
++
++	case PL_DBVT:
++		mem = btAlignedAlloc(sizeof(btDbvtBroadphase),16);
++		pairCache = new (mem)btDbvtBroadphase();
++
++	default:
++		btAssert(!"Unsupported broadphase type");
++	}
++  
+ 	mem = btAlignedAlloc(sizeof(btSequentialImpulseConstraintSolver),16);
+ 	btConstraintSolver*			constraintSolver = new(mem) btSequentialImpulseConstraintSolver();
+ 
+ 	mem = btAlignedAlloc(sizeof(btDiscreteDynamicsWorld),16);
+ 	return (plDynamicsWorldHandle) new (mem)btDiscreteDynamicsWorld(dispatcher,pairCache,constraintSolver,collisionConfiguration);
+ }
++
+ void           plDeleteDynamicsWorld(plDynamicsWorldHandle world)
+ {
+ 	//todo: also clean up the other allocations, axisSweep, pairCache,dispatcher,constraintSolver,collisionConfiguration
+@@ -107,11 +127,11 @@
+ 	btAlignedFree(dynamicsWorld);
+ }
+ 
+-void	plStepSimulation(plDynamicsWorldHandle world,	plReal	timeStep)
++void	plStepSimulation(plDynamicsWorldHandle world, plReal timeStep, int maxSubSteps, plReal fixedTimeStep)
+ {
+ 	btDynamicsWorld* dynamicsWorld = reinterpret_cast< btDynamicsWorld* >(world);
+ 	btAssert(dynamicsWorld);
+-	dynamicsWorld->stepSimulation(timeStep);
++	dynamicsWorld->stepSimulation(timeStep, maxSubSteps, fixedTimeStep);
+ }
+ 
+ void plAddRigidBody(plDynamicsWorldHandle world, plRigidBodyHandle object)
+@@ -207,7 +227,16 @@
+ 	return (plCollisionShapeHandle) new (mem)btConvexHullShape();
+ }
+ 
++plCollisionShapeHandle plNewStaticPlaneShape(plVector3 normal, plReal constant) {
++  void* mem = btAlignedAlloc(sizeof(btStaticPlaneShape),16);
++  return (plCollisionShapeHandle) new (mem)btStaticPlaneShape(btVector3(normal[0], normal[1], normal[2]), constant);
++}
+ 
++plCollisionShapeHandle plNewHeightfieldTerrainShape(int heightStickWidth, int heightStickLength, void *heightfieldData, plReal heightScale, plReal minHeight, plReal maxHeight, int upAxis, plScalarType heightDataType, plBool flipQuadEdges) {
++  void* mem = btAlignedAlloc(sizeof(btHeightfieldTerrainShape),16);
++  return (plCollisionShapeHandle) new (mem)btHeightfieldTerrainShape(heightStickWidth, heightStickLength, heightfieldData, heightScale, minHeight, maxHeight, upAxis, (PHY_ScalarType)heightDataType, flipQuadEdges);
++}
++
+ /* Concave static triangle meshes */
+ plMeshInterfaceHandle		   plNewMeshInterface()
+ {
+@@ -316,9 +345,7 @@
+ 	btRigidBody* body = reinterpret_cast< btRigidBody* >(object);
+ 	btAssert(body);
+ 	const btVector3& pos = body->getWorldTransform().getOrigin();
+-	position[0] = pos.getX();
+-	position[1] = pos.getY();
+-	position[2] = pos.getZ();
++	outputVector(position, pos);
+ }
+ 
+ void plGetOrientation(plRigidBodyHandle object,plQuaternion orientation)
+@@ -334,7 +361,19 @@
+ 
+ 
+ 
+-//plRigidBodyHandle plRayCast(plDynamicsWorldHandle world, const plVector3 rayStart, const plVector3 rayEnd, plVector3 hitpoint, plVector3 normal);
++plCollisionObjectHandle plRayCast(plDynamicsWorldHandle world, const plVector3 rayStart, const plVector3 rayEnd,
++																	plVector3 posWorld, plVector3 normalWorld) {
++	btDynamicsWorld *w = reinterpret_cast< btDynamicsWorld* >(world);
++	const btVector3 from(rayStart[0], rayStart[1], rayStart[2]), to(rayEnd[0], rayEnd[1], rayEnd[2]);
++	btCollisionWorld::ClosestRayResultCallback callback(from, to);
++	w->rayTest(from, to, callback);
++	if(callback.hasHit()) {
++		outputVector(posWorld, callback.m_hitPointWorld);
++		outputVector(normalWorld, callback.m_hitNormalWorld);
++		return reinterpret_cast<plCollisionObjectHandle>(callback.m_collisionObject);
++	}
++	return NULL;
++}
+ 
+ //	extern  plRigidBodyHandle plObjectCast(plDynamicsWorldHandle world, const plVector3 rayStart, const plVector3 rayEnd, plVector3 hitpoint, plVector3 normal);
+ 
+@@ -385,19 +424,15 @@
+ 	
+ 	if (gjkOutput.m_hasResult)
+ 	{
+-		
+-		pb[0] = pa[0] = gjkOutput.m_pointInWorld[0];
+-		pb[1] = pa[1] = gjkOutput.m_pointInWorld[1];
+-		pb[2] = pa[2] = gjkOutput.m_pointInWorld[2];
++		outputVector(pa, gjkOutput.m_pointInWorld);
++		outputVector(pb, gjkOutput.m_pointInWorld);
+ 
+ 		pb[0]+= gjkOutput.m_normalOnBInWorld[0] * gjkOutput.m_distance;
+ 		pb[1]+= gjkOutput.m_normalOnBInWorld[1] * gjkOutput.m_distance;
+ 		pb[2]+= gjkOutput.m_normalOnBInWorld[2] * gjkOutput.m_distance;
+-		
+-		normal[0] = gjkOutput.m_normalOnBInWorld[0];
+-		normal[1] = gjkOutput.m_normalOnBInWorld[1];
+-		normal[2] = gjkOutput.m_normalOnBInWorld[2];
+ 
++		outputVector(normal, gjkOutput.m_normalOnBInWorld);
++
+ 		return gjkOutput.m_distance;
+ 	}
+ 	return -1.0f;	
+Index: src/Bullet-C-Api.h
+===================================================================
+--- src/Bullet-C-Api.h	(revision 2443)
++++ src/Bullet-C-Api.h	(working copy)
+@@ -31,9 +31,31 @@
+ typedef float	plReal;
+ #endif
+ 
++typedef enum plBool {
++  PL_FALSE = 0,
++  PL_TRUE
++} plBool;
++
+ typedef plReal	plVector3[3];
+ typedef plReal	plQuaternion[4];
+ 
++// Duplicated from BulletCollision/CollisionShapes/btConcaveShape.h
++// TODO: Use a common definition
++typedef enum plScalarType {
++	PL_FLOAT,
++	PL_DOUBLE,
++	PL_INTEGER,
++	PL_SHORT,
++	PL_FIXEDPOINT88,
++	PL_UCHAR
++} plScalarType;
++
++typedef enum plBroadphase {
++  PL_SAP,
++  PL_DBVT
++} plBroadphase;
++
++
+ #ifdef __cplusplus
+ extern "C" { 
+ #endif
+@@ -47,6 +69,9 @@
+ /** Rigid Body that can be part of a Dynamics World (C-API)*/	
+ 	PL_DECLARE_HANDLE(plRigidBodyHandle);
+ 
++/** Superclass of rigid body; may also represent ghost objects*/
++  PL_DECLARE_HANDLE(plCollisionObjectHandle);
++
+ /** 	Collision Shape/Geometry, property of a Rigid Body (C-API)*/
+ 	PL_DECLARE_HANDLE(plCollisionShapeHandle);
+ 
+@@ -91,11 +116,11 @@
+ 
+ /* Dynamics World */
+ 
+-	extern  plDynamicsWorldHandle plCreateDynamicsWorld(plPhysicsSdkHandle physicsSdk);
++  extern  plDynamicsWorldHandle plCreateDynamicsWorld(plPhysicsSdkHandle physicsSdk, plBroadphase broadphase);
+ 
+ 	extern  void           plDeleteDynamicsWorld(plDynamicsWorldHandle world);
+ 
+-	extern	void	plStepSimulation(plDynamicsWorldHandle,	plReal	timeStep);
++	extern	void	plStepSimulation(plDynamicsWorldHandle,	plReal timeStep, int maxSubSteps, plReal fixedTimeStep);
+ 
+ 	extern  void plAddRigidBody(plDynamicsWorldHandle world, plRigidBodyHandle object);
+ 
+@@ -125,6 +150,8 @@
+ 	extern  plCollisionShapeHandle plNewConvexHullShape(void);
+ 	extern  void		plAddVertex(plCollisionShapeHandle convexHull, plReal x,plReal y,plReal z);
+ /* Concave static triangle meshes */
++  extern  plCollisionShapeHandle plNewStaticPlaneShape(plVector3 normal, plReal constant);
++  extern  plCollisionShapeHandle plNewHeightfieldTerrainShape(int heightStickWidth, int heightStickLength, void *heightfieldData, plReal heightScale, plReal minHeight, plReal maxHeight, int upAxis, plScalarType heightDataType, plBool flipQuadEdges);
+ 	extern  plMeshInterfaceHandle		   plNewMeshInterface(void);
+ 	extern  void		plAddTriangle(plMeshInterfaceHandle meshHandle, plVector3 v0,plVector3 v1,plVector3 v2);
+ 	extern  plCollisionShapeHandle plNewStaticTriangleMeshShape(plMeshInterfaceHandle);
+@@ -149,15 +176,9 @@
+ 	extern	void plSetEuler(plReal yaw,plReal pitch,plReal roll, plQuaternion orient);
+ 	extern	void plSetOpenGLMatrix(plRigidBodyHandle object, plReal* matrix);
+ 
+-	typedef struct plRayCastResult {
+-		plRigidBodyHandle		m_body;  
+-		plCollisionShapeHandle	m_shape; 		
+-		plVector3				m_positionWorld; 		
+-		plVector3				m_normalWorld;
+-	} plRayCastResult;
++	extern plCollisionObjectHandle plRayCast(plDynamicsWorldHandle world, const plVector3 rayStart, const plVector3 rayEnd,
++                                           plVector3 posWorld, plVector3 normalWorld);
+ 
+-	extern  int plRayCast(plDynamicsWorldHandle world, const plVector3 rayStart, const plVector3 rayEnd, plRayCastResult res);
+-
+ 	/* Sweep API */
+ 
+ 	/* extern  plRigidBodyHandle plObjectCast(plDynamicsWorldHandle world, const plVector3 rayStart, const plVector3 rayEnd, plVector3 hitpoint, plVector3 normal); */
+Index: Demos/CMakeLists.txt
+===================================================================
+--- Demos/CMakeLists.txt	(revision 2443)
++++ Demos/CMakeLists.txt	(working copy)
+@@ -22,6 +22,7 @@
+ 			MultiThreadedDemo
+ 			ParticlesOpenCL
+ 			OpenCLClothDemo
++			BulletDinoDemo
+ 			)
+ 		ELSE()
+ 			SET(SharedDemoSubdirs
+Index: Demos/BulletDinoDemo/BulletDino.c
+===================================================================
+--- Demos/BulletDinoDemo/BulletDino.c	(revision 2443)
++++ Demos/BulletDinoDemo/BulletDino.c	(working copy)
+@@ -718,7 +718,7 @@
+   }
+ 
+   if (dynamicsWorld)
+-		plStepSimulation(dynamicsWorld,dtime);
++		plStepSimulation(dynamicsWorld,dtime, 1, (plReal)1./60.);
+   
+   glutPostRedisplay();
+ }
+@@ -845,7 +845,7 @@
+ 	void* user_data=NULL;
+ 	
+ 	physicsSdk = plNewBulletSdk();
+-	dynamicsWorld = plCreateDynamicsWorld(physicsSdk);
++	dynamicsWorld = plCreateDynamicsWorld(physicsSdk, PL_DBVT);
+ 
+ 	//create ground plane
+ 
+Index: Demos/BulletDinoDemo/CMakeLists.txt
+===================================================================
+--- Demos/BulletDinoDemo/CMakeLists.txt	(revision 2443)
++++ Demos/BulletDinoDemo/CMakeLists.txt	(working copy)
+@@ -52,7 +52,7 @@
+ )
+ 
+ LINK_LIBRARIES(
+- LibOpenGLSupport LibBulletDynamics  LibBulletCollision LibLinearMath    ${GLUT_glut_LIBRARY} ${OPENGL_gl_LIBRARY} ${OPENGL_glU_LIBRARY}
++ OpenGLSupport BulletDynamics  BulletCollision LinearMath    ${GLUT_glut_LIBRARY} ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY}
+ )
+ 
+ ADD_EXECUTABLE(BulletDino

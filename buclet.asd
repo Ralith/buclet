@@ -9,7 +9,7 @@
 (in-package :cl-user)
 
 (asdf:defsystem :buclet
-  :version "2.74.1"
+  :version "svn.1"
   :depends-on (#:cffi #:sb-cga)
   :components
     ((:module "src"
