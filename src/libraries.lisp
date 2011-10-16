@@ -6,7 +6,7 @@
 ;;;;
 ;;;; See the LICENSE file in the Buclet root directory for more info.
 
-(in-package :buclet)
+(in-package :pl)
 
 
 ;;; Bullet Foreign Libraries
@@ -37,10 +37,6 @@
   (format t "~&[buclet] foreign library bullet-collision loaded~%")
   (use-foreign-library bullet-dynamics)
   (format t "~&[buclet] foreign library bullet-dynamics loaded~%"))
-
-
-(defun quit ()
-  (cl-user::quit))
 
 
 ;;; Loading the libraries

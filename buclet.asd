@@ -8,17 +8,12 @@
 
 (in-package :cl-user)
 
-(defpackage :buclet-system
-  (:use :cl :asdf))
-
-(in-package :buclet-system)
-
 (asdf:defsystem :buclet
   :version "2.74.1"
+  :depends-on (#:cffi #:sb-cga)
   :components
-    ((:module src
+    ((:module "src"
       :components
         ((:file "package")
-         (:file "buclet" :depends-on ("package"))
-         (:file "cffi" :depends-on ("package" "buclet")))))
-  :depends-on (:cffi))
+         (:file "libraries" :depends-on ("package"))
+         (:file "bindings" :depends-on ("package" "libraries"))))))

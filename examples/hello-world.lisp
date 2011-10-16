@@ -10,8 +10,10 @@
 
 ;;; Packages
 
-(asdf :buclet)
-(in-package :buclet)
+;(asdf :buclet)
+(defpackage :pl-hello-world
+  (:use :cl :pl :sb-cga))
+(in-package :pl-hello-world)
 
 
 ;;; Variables
@@ -26,35 +28,38 @@
 
 ;;; Functions
 
+(defun quat (a b c d)
+  (make-array 4 :element-type 'single-float :initial-contents (list a b c d)))
+
 (defun start-simulation ()
-  (set-position *fall-rigid-body* '(0.0 50.0 0.0))
-  (set-orientation *fall-rigid-body* '(0.0 0.0 0.0 1.0))
+  (set-position *fall-rigid-body* (vec 0.0 50.0 0.0))
+  (set-orientation *fall-rigid-body* (quat 0.0 0.0 0.0 1.0))
   (loop for i from 0 to 300
         with sim-step = (/ 1.0 60.0)
-        do (step-simulation *dynamics-world* sim-step)
+        do (step-simulation *dynamics-world* sim-step 10 sim-step)
            (format t "~A: sphere Y position: ~A~%"
-                   i (second (get-position *fall-rigid-body*)))
+                   i (aref (get-position *fall-rigid-body*) 1))
            (sleep sim-step)))
 
 
 ;;; Initialisation
 
 (setf *physics-sdk* (new-bullet-sdk))
-(setf *dynamics-world* (create-dynamics-world *physics-sdk*))
+(setf *dynamics-world* (create-dynamics-world *physics-sdk* :dbvt))
 
-(setf *ground-shape* (new-static-plane-shape '(0.0 1.0 0.0) 1.0))
+(setf *ground-shape* (new-static-plane-shape (vec 0.0 1.0 0.0) 1.0))
 (setf *ground-rigid-body* (create-rigid-body 0.0 *ground-shape*))
-(set-position *ground-rigid-body* '(0.0 -1.0 0.0))
-(set-orientation *ground-rigid-body* '(0.0 0.0 0.0 1.0))
+(set-position *ground-rigid-body* (vec 0.0 -1.0 0.0))
+(set-orientation *ground-rigid-body* (quat 0.0 0.0 0.0 1.0))
 (add-rigid-body *dynamics-world* *ground-rigid-body*)
 
 (setf *fall-shape* (new-sphere-shape 1.0))
 (setf *fall-rigid-body* (create-rigid-body 1.0 *fall-shape*))
-(set-position *fall-rigid-body* '(0.0 50.0 0.0))
-(set-orientation *fall-rigid-body* '(0.0 0.0 0.0 1.0))
+(set-position *fall-rigid-body* (vec 0.0 50.0 0.0))
+(set-orientation *fall-rigid-body* (quat 0.0 0.0 0.0 1.0))
 (add-rigid-body *dynamics-world* *fall-rigid-body*)
 
 
 ;;; Main Program
 
-(start-simulation)
+;(start-simulation)
